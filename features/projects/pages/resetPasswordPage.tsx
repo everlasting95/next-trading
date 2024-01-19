@@ -1,3 +1,4 @@
+"use client";
 import Input from "@/components/atoms/input";
 import Button from "@/components/atoms/button";
 import { ButtonType } from "@/components/atoms/button";

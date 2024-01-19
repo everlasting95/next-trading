@@ -12,7 +12,7 @@ export default function CompanyListPage() {
   useEffect(() => {
     const fetchData = async () => {
       const res = await axios.get("api/company");
-      console.log(res);
+      if (res.data?.type !== "error") setData(res.data);
     };
 
     fetchData();
@@ -24,72 +24,6 @@ export default function CompanyListPage() {
       setActive(idx);
     }
   };
-  // const data = [
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: false,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: true,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "",
-  //     freeAccount: false,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: true,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: true,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: true,
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "未登録",
-  //     freeAccount: "",
-  //     date: "2023/01/01",
-  //   },
-  //   {
-  //     companyName: "株式会社ABC",
-  //     personName: "山田 太郎",
-  //     condition: "稼働中",
-  //     settlement: "",
-  //     freeAccount: "",
-  //     date: "2023/01/01",
-  //   },
-  // ];
   return (
     <div>
       <div className="px-[30px] sp:px-[12px] pt-[110px] pb-[30px]">
@@ -156,19 +90,19 @@ export default function CompanyListPage() {
             {data.map((aData, idx) => (
               <tr key={idx}>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] hover:cursor-pointer text-[#3F8DEB] underline underline-[#3F8DEB] underline-offset-[3px]">
-                  <Link href={"/company"}>{aData.companyName}</Link>
+                  <Link href={`/company/${aData.id}`}>{aData.companyName}</Link>
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] ">
-                  {aData.personName}
+                  {aData.responsibleName}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.condition}
+                  {aData.status}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.settlement}
+                  {aData.payment}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.freeAccount}
+                  {aData.freeAccount ? "無料アカウント" : ""}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] ">
                   {aData.date}
@@ -187,13 +121,17 @@ export default function CompanyListPage() {
               <div className="flex justify-between px-[30px] py-[20px] w-full">
                 <div className="flex">
                   <span className="text-[#3F8DEB] underline hover:cursor-pointer underline-offset-3 sp:text-sp">
-                    {aData.companyName}
+                    <Link href={`/company/${aData.id}`}>
+                      {aData.companyName}
+                    </Link>
                   </span>
 
-                  {aData.freeAccount && (
+                  {aData.freeAccount ? (
                     <span className="text-[#B3B3B4] ml-[15px] sp:text-spsmall">
                       無料アカウント
                     </span>
+                  ) : (
+                    ""
                   )}
                 </div>
 
@@ -203,32 +141,32 @@ export default function CompanyListPage() {
                 />
               </div>
               {idx === active && (
-                <div className="p-[25px]">
-                  <div className="flex">
+                <div className="px-[25px] py-[10px]">
+                  <div className="flex my-[10px]">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
                       担当者名
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.personName}
+                      {aData.responsibleName}
                     </span>
                   </div>
-                  <div className="flex">
+                  <div className="flex my-[10px]">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
                       状態
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.condition}
+                      {aData.status}
                     </span>
                   </div>
-                  <div className="flex">
+                  <div className="flex my-[10px]">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
                       決算
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.settlement}
+                      {aData.payment}
                     </span>
                   </div>
-                  <div className="flex">
+                  <div className="flex my-[10px]">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
                       登録日
                     </div>
