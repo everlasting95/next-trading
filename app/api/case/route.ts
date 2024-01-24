@@ -28,14 +28,13 @@ export async function POST(request: NextRequest) {
     }/${today.getDate()}`;
     const defaultValues = {
       date: todayString,
-      status: "申請中",
       collectionStatus: "募集前",
     };
     body = { ...body, ...defaultValues };
     let query1 = "";
     let query2 = "";
     const keys = Object.keys(body);
-    keys.map((aKey) => {
+    keys?.map((aKey) => {
       query1 += aKey + ",";
       query2 += "'" + body[aKey] + "',";
     });
@@ -68,7 +67,9 @@ export async function POST(request: NextRequest) {
       -1
     )}) VALUES(${query2.slice(0, -1)})`;
 
-    const result = await executeQuery(query);
+    const result = await executeQuery(query).catch((e) => {
+      return NextResponse.json({ type: "error", msg: "error" });
+    });
     return NextResponse.json({ type: "success" });
   } catch (error) {
     console.error("Error creating table or inserting record:", error);
@@ -80,7 +81,7 @@ export async function GET() {
     const query = `SELECT cases.*, company.companyName
     FROM cases
     LEFT JOIN company ON cases.companyId=company.id
-    ORDER BY cases.id;`;
+    ORDER BY cases.id DESC`;
     // const query = `SELECT * FROM cases`;
     const rows = await executeQuery(query).catch((e) => {
       return NextResponse.json({ type: "error" });
@@ -97,7 +98,7 @@ export async function PUT(request: NextRequest) {
     let query = "UPDATE cases SET ";
     const keys = Object.keys(body);
 
-    keys.map((aKey) => {
+    keys?.map((aKey) => {
       if (aKey !== "id" && aKey !== "companyId" && aKey !== "companyName") {
         query += `${aKey} = '${body[aKey]}', `;
       }

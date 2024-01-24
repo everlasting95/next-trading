@@ -11,10 +11,9 @@ export default function CompanyListPage() {
   const [data, setData] = useState([]);
   useEffect(() => {
     const fetchData = async () => {
-      const res = await axios.get("api/company");
-      if (res.data?.type !== "error") setData(res.data);
+      const res = await axios.get("api/company");      
+      if (res.data?.length) setData(res.data);
     };
-
     fetchData();
   }, []);
   const onItemClick = ({ idx }: { idx: number }) => {
@@ -87,7 +86,7 @@ export default function CompanyListPage() {
             </tr>
           </thead>
           <tbody>
-            {data.map((aData, idx) => (
+            {data?.map((aData, idx) => (
               <tr key={idx}>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] hover:cursor-pointer text-[#3F8DEB] underline underline-[#3F8DEB] underline-offset-[3px]">
                   <Link href={`/company/${aData.id}`}>{aData.companyName}</Link>
@@ -112,7 +111,7 @@ export default function CompanyListPage() {
           </tbody>
         </table>
         <div className="lg:hidden">
-          {data.map((aData, idx) => (
+          {data?.map((aData, idx) => (
             <div
               key={idx}
               className=" bg-[#F8F9FA] border border-[#D3D3D3]"

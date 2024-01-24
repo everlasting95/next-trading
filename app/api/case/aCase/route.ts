@@ -20,15 +20,16 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const id = request.nextUrl.searchParams.get("id") || "";
-    const { update, reason, approveMode } = await request.json();
+    const { update, reason, approveMode, resumeMode } = await request.json();
+    if (resumeMode) {
+    }
     const query = approveMode
       ? `UPDATE cases
     SET status = '${update}',reason = '${reason}'
     WHERE id = ${id}`
       : `UPDATE cases
-    SET status = '${update}'
+    SET collectionStatus = '${update}'
     WHERE id = ${id}`;
-    console.log(query);
 
     const result = await executeQuery(query);
     if (result) return NextResponse.json({ type: "success" });

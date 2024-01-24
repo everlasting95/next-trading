@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getUser } from "../../utils/getUser";
 import axios from "axios";
+import Button, { ButtonType } from "@/components/atoms/button";
 
 export default function AppliedList() {
   const [active, setActive] = useState(null);
@@ -16,9 +17,9 @@ export default function AppliedList() {
       const result = await axios.get(
         `/api/case/company?id=${user.user?.targetId}`
       );
-      setData(result.data);
+      if (result.data?.length) setData(result.data);
     };
-    fetchData();
+    if (user) fetchData();
   }, []);
 
   const onItemClick = ({ idx }: { idx: Number }) => {
@@ -28,14 +29,26 @@ export default function AppliedList() {
       setActive(idx);
     }
   };
+
   return (
     <div>
       <div className="px-[30px] sp:px-[12px] pt-[110px] pb-[30px]">
         <div className="text-title sp:hidden">登録案件一覧</div>
+        <Link href={"/case"}>
+          <Button
+            buttonType={ButtonType.PRIMARY}
+            buttonClassName="mt-[15px] sp:my-[15px] sp:text-small rounded-[0px]"
+          >
+            <div className="flex">
+              <img src="/img/plus.svg" alt="plus" className="mr-[5px]" />
+              新規登録
+            </div>
+          </Button>
+        </Link>
         <SearchBar
           extendChild={
             <div>
-              <div className="mt-[30px] sp:mt-[10px] text-small text-[#3F8DEB] font-bold">
+              <div className="mt-[20px] sp:mt-[10px] text-small text-[#3F8DEB] font-bold">
                 条件を絞り込みできます。
               </div>
               <div className="flex sp:block mt-[8px] flex-wrap gap-x-10">
@@ -96,7 +109,7 @@ export default function AppliedList() {
             </tr>
           </thead>
           <tbody>
-            {data.map((aData, idx) => (
+            {data?.map((aData, idx) => (
               <tr key={idx}>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3]">
                   {aData.caseType}
@@ -111,13 +124,21 @@ export default function AppliedList() {
                   {aData.collectionStatus}
                 </td>
                 <td className="text-center w-[100px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.collectionStart}
+                  {aData.collectionStart
+                    ? aData.collectionStart.split("T")[0] +
+                      "/" +
+                      aData.collectionStart.split("T")[1]
+                    : ""}
                 </td>
                 <td className="text-center w-[100px] py-[25px]  border border-[#D3D3D3] ">
-                  {aData.collectionEnd}
+                  {aData.collectionEnd
+                    ? aData.collectionEnd.split("T")[0] +
+                      "/" +
+                      aData.collectionEnd.split("T")[1]
+                    : ""}
                 </td>
                 <td className="py-[25px]  border border-[#D3D3D3]">
-                  <Link href={`/caseDetail/${aData.id}`}>
+                  <Link href={`/caseDetail/${aData.id}`} target="blank">
                     <img
                       src="/img/detail.svg"
                       alt="detail"
@@ -135,7 +156,7 @@ export default function AppliedList() {
           </tbody>
         </table>
         <div className="lg:hidden">
-          {data.map((aData, idx) => (
+          {data?.map((aData, idx) => (
             <div
               key={idx}
               className=" bg-[#F8F9FA] border border-[#D3D3D3]"
@@ -184,7 +205,11 @@ export default function AppliedList() {
                       募集開始
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.collectionStart}
+                      {aData.collectionStart
+                        ? aData.collectionStart.split("T")[0] +
+                          "/" +
+                          aData.collectionStart.split("T")[1]
+                        : ""}
                     </span>
                   </div>
                   <div className="flex my-[10px]">
@@ -192,7 +217,11 @@ export default function AppliedList() {
                       募集終了
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.collectionEnd}
+                      {aData.collectionEnd
+                        ? aData.collectionEnd.split("T")[0] +
+                          "/" +
+                          aData.collectionEnd.split("T")[1]
+                        : ""}
                     </span>
                   </div>
                   <div className="flex my-[10px]">

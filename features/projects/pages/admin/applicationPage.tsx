@@ -6,16 +6,23 @@ import Link from "next/link";
 import axios from "axios";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-
+import Modal from "../../utils/modal";
+const confirmMsg = "操作が成功しました。";
 export interface ApplicatinProps {
   modalMode?: boolean;
   companyMode?: boolean;
+  influencerDetailMode?: boolean;
+  influencerMode?: boolean;
+  caseID?: number;
   onCancel?: () => void;
 }
 
 const ApplicationPage: React.FC<ApplicatinProps> = ({
   modalMode,
   companyMode,
+  influencerMode,
+  influencerDetailMode,
+  caseID,
   onCancel,
 }: ApplicatinProps) => {
   const [data, setData] = useState(null);
@@ -24,15 +31,25 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
   const [error, setError] = useState("");
   const { id } = useParams();
   const router = useRouter();
+  const [showConfirm, setShowConfirm] = useState(false);
   useEffect(() => {
     const fetchData = async () => {
-      const result = await axios.get(`/api/case/aCase/?id=${id}`);
-      setData(result.data);
+      let result;
+      if (influencerMode) {
+        result = await axios.get(`/api/case/aCase/?id=${caseID}`);
+      } else {
+        result = await axios.get(`/api/case/aCase/?id=${id}`);
+      }
+      if (result.data) {
+        setData(result.data);
+        setReason(result.data.reason);
+      }
       setWantedSNS(JSON.parse(result.data.wantedSNS));
     };
 
     fetchData();
-  }, []);
+  }, [caseID]);
+
   const apporove = (val: boolean) => {
     const approveApplication = async () => {
       const reason1 = val ? "" : reason;
@@ -47,7 +64,8 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
         approveMode: true,
       });
       if (result.data.type === "success") {
-        router.back();
+        setShowConfirm(true);
+        setError("");
       } else {
         setError("サーバーでエラーが発生しました。");
       }
@@ -60,10 +78,26 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
     <div
       className={
         modalMode
-          ? "text-center bg-[white]  px-[35px] sp:px-[12px] sp:text-small w-[40%] sp:w-[90%] m-auto relative"
+          ? "text-center bg-[white]  px-[35px] sp:px-[12px] sp:text-small w-[40%] sp:w-[90%] m-auto relative shadow-lg "
           : "text-center bg-[white] px-[35px] sp:px-[12px] sp:text-small "
       }
     >
+      <div
+        className={
+          showConfirm
+            ? "bg-black bg-opacity-25 w-full h-full fixed left-0 top-0 overflow-auto duration-500"
+            : "bg-black bg-opacity-25 w-full h-full fixed left-0 top-0 overflow-auto opacity-0 pointer-events-none duration-500"
+        }
+      >
+        <Modal
+          body={confirmMsg}
+          onOk={() => {
+            setShowConfirm(false);
+            router.back();
+          }}
+          onCancel={() => setShowConfirm(false)}
+        />
+      </div>
       {!modalMode && (
         <div className="flex items-center py-[20px]  w-[full] border-b-[1px] border-[#DDDDDD] mt-[70px] sp:mt-[96px]">
           <span className="text-title sp:text-sptitle">{data?.caseName}</span>
@@ -239,7 +273,7 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
           widthClass
         }
       >
-        <span className="w-[35%] sp:w-[100px] flex justify-end sp:justify-start  mr-[67px]">
+        <span className="w-[35%] mb-[10px] sp:w-[100px] flex justify-end sp:justify-start  mr-[67px]">
           <span className="text-[#6F6F6F]">補足・注意事項 </span>
         </span>
         <div className="text-left">{data?.addition}</div>
@@ -259,6 +293,8 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
             textAreaClassName="max-w-[300px] h-[95px] grow border-[#D3D3D3] "
             placeholder="否決理由を入力してください。"
             handleChange={(val) => {
+              console.log(val);
+
               setReason(val);
             }}
           />
@@ -319,10 +355,16 @@ const ApplicationPage: React.FC<ApplicatinProps> = ({
           </Button>
         </div>
       )}
-      {modalMode && !companyMode && (
-        <Button buttonType={ButtonType.PRIMARY} buttonClassName="m-[30px]">
+      {modalMode && influencerMode && !influencerDetailMode && (
+        <Button
+          handleClick={() => {
+            if (onCancel) onCancel();
+          }}
+          buttonType={ButtonType.PRIMARY}
+          buttonClassName="m-[30px]"
+        >
           <span className="flex items-center">
-            <span>応募</span>
+            <span>確認</span>
           </span>
         </Button>
       )}

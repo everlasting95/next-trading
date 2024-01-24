@@ -4,11 +4,43 @@ import Button, { ButtonType } from "@/components/atoms/button";
 import Checkbox from "@/components/atoms/checkbox";
 import SearchBar from "@/components/organisms/searchbar";
 import ApplicationPage from "../admin/applicationPage";
-import { useState } from "react";
-
+import { useRecoilValue } from "recoil";
+import { useState, useEffect } from "react";
+import Modal from "../../utils/modal";
+import { authUserState } from "@/recoil/atom/auth/authUserAtom";
+import axios from "axios";
 export default function CollectedCase() {
+  const user = useRecoilValue(authUserState);
+
   const [active, setActive] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [data, setData] = useState([]);
+  const [appliedCase, setAppliedCase] = useState([]);
+  const [caseId, setCaseId] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [reload, setReload] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("");
+  useEffect(() => {
+    const fetchData = async () => {
+      const result = await axios.get("/api/case/influencer");
+      if (result.data.length !== 0) {
+        setCaseId(result.data[0]?.id);
+        if (result.data?.length) setData(result.data);
+      }
+    };
+    const fetchApplied = async () => {
+      const result = await axios.get(`/api/apply?id=${user.user.targetId}`);
+      if (result.data?.length) setAppliedCase(result.data);
+    };
+    if (user) {
+      fetchApplied();
+      fetchData();
+    }
+  }, [reload]);
+  const alreadyAppliedOrNot = (caseId: number) => {
+    const already = appliedCase.some((a) => a.caseId === caseId);
+    return already;
+  };
   const onItemClick = ({ idx }: { idx: Number }) => {
     if (active === idx) {
       setActive(null);
@@ -16,52 +48,56 @@ export default function CollectedCase() {
       setActive(idx);
     }
   };
-  const data = [
-    {
-      companyName: "株式会社ABC",
-      caseName: "カフェPR",
-      caseType: "来店",
-      place: "東京都",
-      start: "2023/01/01",
-      end: "2023/01/01",
-    },
-    {
-      companyName: "株式会社ABC",
-      caseName: "カフェPR",
-      caseType: "来店",
-      place: "東京都",
-      start: "2023/01/01",
-      end: "2023/01/01",
-    },
-    {
-      companyName: "株式会社ABC",
-      caseName: "カフェPR",
-      caseType: "来店",
-      place: "東京都",
-      start: "2023/01/01",
-      end: "2023/01/01",
-    },
-    {
-      companyName: "株式会社ABC",
-      caseName: "カフェPR",
-      caseType: "来店",
-      place: "東京都",
-      start: "2023/01/01",
-      end: "2023/01/01",
-    },
-  ];
+  const handleApply = async (caseId: string) => {
+    const { targetStatus } = user.user;
+    if (targetStatus !== "稼動中") {
+      setConfirmMsg("稼働中ではないので申請できません。");
+      setShowConfirm(true);
+      return;
+    }
+    const result = await axios.post("/api/apply", {
+      caseId,
+      influencerId: user.user.targetId,
+    });
+    if (result.data.type === "success") {
+      setReload(!reload);
+      setConfirmMsg("操作が成功しました。");
+      setShowConfirm(true);
+    }
+  };
   return (
     <div>
-      {showModal && (
-        <div className="bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto">
+      <div
+        className={
+          showConfirm
+            ? "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto duration-500"
+            : "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto opacity-0 pointer-events-none duration-500"
+        }
+      >
+        <Modal
+          body={confirmMsg}
+          onOk={() => setShowConfirm(false)}
+          onCancel={() => setShowConfirm(false)}
+        />
+      </div>
+      <div
+        className={
+          showModal
+            ? "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto duration-500"
+            : "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto opacity-0 pointer-events-none duration-500"
+        }
+      >
+        {caseId && (
           <div>
             <ApplicationPage
-              isInfluencerMode
+              influencerMode
+              modalMode
+              caseID={caseId}
               onCancel={() => setShowModal(false)}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <div className="px-[30px] sp:px-[12px] pt-[110px] pb-[30px]">
         <div className="text-title sp:hidden">募集中案件一覧</div>
         <SearchBar
@@ -120,7 +156,7 @@ export default function CollectedCase() {
             </tr>
           </thead>
           <tbody>
-            {data.map((aData, idx) => (
+            {data?.map((aData, idx) => (
               <tr key={idx}>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] hover:cursor-pointer">
                   {aData.companyName}
@@ -128,32 +164,54 @@ export default function CollectedCase() {
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] ">
                   <span
                     className="text-[#3F8DEB] underline hover:cursor-pointer underline-offset-3 sp:text-sp"
-                    onClick={() => setShowModal(true)}
+                    onClick={() => {
+                      setCaseId(aData.id);
+                      setShowModal(true);
+                    }}
                   >
                     {aData.caseName}
                   </span>
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] hover:cursor-pointer">
-                  {aData.caseName}
+                  {aData.caseType}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.place}
+                  {aData.casePlace}
                 </td>
                 <td className="text-center w-[100px] py-[25px]  border border-[#D3D3D3]">
-                  {aData.start}
+                  {aData.collectionStart
+                    ? aData.collectionStart.split("T")[0] +
+                      "/" +
+                      aData.collectionStart.split("T")[1]
+                    : ""}
                 </td>
                 <td className="text-center w-[100px] py-[25px]  border border-[#D3D3D3] ">
-                  {aData.end}
+                  {aData.collectionEnd
+                    ? aData.collectionEnd.split("T")[0] +
+                      "/" +
+                      aData.collectionEnd.split("T")[1]
+                    : ""}
                 </td>
                 <td className="px-[35px] py-[25px]  border border-[#D3D3D3] text-center">
-                  <Button buttonType={ButtonType.PRIMARY}>応募</Button>
+                  {!alreadyAppliedOrNot(aData.id) ? (
+                    <Button
+                      buttonType={ButtonType.PRIMARY}
+                      handleClick={() => handleApply(aData.id)}
+                    >
+                      応募
+                    </Button>
+                  ) : (
+                    <div className="text-white bg-[#236997] p-[10px] rounded-lg shadow-sm">
+                      申請済み
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="lg:hidden">
-          {data.map((aData, idx) => (
+          {data?.map((aData, idx) => (
             <div
               key={idx}
               className=" bg-[#F8F9FA] border border-[#D3D3D3]"
@@ -161,8 +219,14 @@ export default function CollectedCase() {
             >
               <div className="flex justify-between px-[30px] py-[20px] w-full">
                 <div className="flex">
-                  <span className="text-[#3F8DEB] underline hover:cursor-pointer underline-offset-3 sp:text-sp">
-                    {aData.caseType}
+                  <span
+                    className="text-[#3F8DEB] underline hover:cursor-pointer underline-offset-3 sp:text-sp"
+                    onClick={() => {
+                      setCaseId(aData.id);
+                      setShowModal(true);
+                    }}
+                  >
+                    {aData.caseName}
                   </span>
                 </div>
 
@@ -175,32 +239,50 @@ export default function CollectedCase() {
                 <div className="p-[25px]">
                   <div className="flex">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
-                      担当者名
-                    </div>
-                    {/* <span className="mb-[7px] sp:text-spsmall">{aData.c}</span> */}
-                  </div>
-                  <div className="flex">
-                    <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
-                      状態
+                      会社名
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {/* {aData.status} */}
+                      {aData.companyName}
                     </span>
                   </div>
                   <div className="flex">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
-                      決算
+                      案件種別
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {/* {aData.recruitMentStatus} */}
+                      {aData.caseType}
                     </span>
                   </div>
                   <div className="flex">
                     <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
-                      登録日
+                      来店場所
                     </div>
                     <span className="mb-[7px] sp:text-spsmall">
-                      {aData.start}
+                      {aData.casePlace}
+                    </span>
+                  </div>
+                  <div className="flex">
+                    <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
+                      募集開始
+                    </div>
+                    <span className="mb-[7px] sp:text-spsmall">
+                      {aData.collectionStart
+                        ? aData.collectionStart.split("T")[0] +
+                          "/" +
+                          aData.collectionStart.split("T")[1]
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="flex">
+                    <div className="w-[80px] mr-[36px] text-right text-[#A9A9A9] sp:text-spsmall">
+                      募集終了
+                    </div>
+                    <span className="mb-[7px] sp:text-spsmall">
+                      {aData.collectionEnd
+                        ? aData.collectionEnd.split("T")[0] +
+                          "/" +
+                          aData.collectionEnd.split("T")[1]
+                        : ""}
                     </span>
                   </div>
                 </div>

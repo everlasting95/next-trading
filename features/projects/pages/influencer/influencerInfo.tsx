@@ -8,7 +8,9 @@ import TextArea from "@/components/atoms/textarea";
 import axios from "axios";
 import { useRecoilValue } from "recoil";
 import { authUserState } from "@/recoil/atom/auth/authUserAtom";
-
+import { useRouter } from "next/navigation";
+import Modal from "../../utils/modal";
+const confirmMsg = "操作が成功しました。";
 export interface InfluencerInfoProps {
   applyMode?: boolean;
 }
@@ -74,46 +76,99 @@ const followersOptions = [
   "500,001～1,000,000",
   "1,000,001～",
 ];
+const msgs = {
+  nickName: "ニックネームを入力してください",
+  phoneNumber: "電話番号を入力してください ",
+  emailAddress: "メールアドレスを入力してください  ",
+};
 const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
   applyMode,
 }: InfluencerInfoProps) => {
   const authUser = useRecoilValue(authUserState);
   const [data, setData] = useState(null);
-  const [genre, setGenre] = useState([]);
+  const [genre, setGenre] = useState(JSON.stringify([]));
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState("");
+  const [agree, setAgree] = useState(false);
+  const router = useRouter();
   useEffect(() => {
     const fetchData = async () => {
       const result = await axios.get(
         `/api/influencer/aInfluencer?id=${authUser.user?.targetId}`
       );
-      setData(result.data);
-      setGenre(JSON.parse(result.data.genre));
+      if (result.data) {
+        setData(result.data);
+        setGenre(result.data.genre);
+      }
     };
-    if (!applyMode) fetchData();
+    if (!applyMode && authUser) fetchData();
   }, []);
   const handleGenreChange = (val) => {
     let isAlreadyExits = false;
-    genre.forEach((a) => {
+    const genre1 = JSON.parse(genre);
+    genre1.forEach((a) => {
       if (a === val) isAlreadyExits = true;
     });
     if (!isAlreadyExits) {
-      setGenre([...genre, val]);
+      setGenre(JSON.stringify([...genre1, val]));
     } else {
-      let filteredArray = genre.filter((element) => element !== val);
-      setGenre(filteredArray);
+      let filteredArray = genre1.filter((element) => element !== val);
+      setGenre(JSON.stringify(filteredArray));
     }
   };
   const handleSend = async (applyMode: boolean) => {
-    const genres = JSON.stringify(genre);
     const body = {
       ...data,
-      genre: genres,
+      genre,
     };
-    let result;
-    if (applyMode) result = await axios.post("api/influencer", body);
-    else {
-      result = await axios.put("api/influencer", body);
+    const keys = Object.keys(msgs);
+    let isValid = true;
+
+    keys.forEach((aKey) => {
+      if (body[aKey] === "" || !body[aKey]) {
+        console.log(body[aKey]);
+
+        if (!isValid) return;
+        setError(msgs[aKey]);
+        isValid = false;
+        return;
+      }
+    });
+    if (!isValid) return;
+    let phonePattern = /^0\d{1,4}-\d{1,4}-\d{4}$/;
+    if (!phonePattern.test(data.phoneNumber.trim())) {
+      setError("電話番号形式ではありません");
+      isValid = false;
+      return;
     }
-    console.log(result.data);
+    let mailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!mailPattern.test(data.emailAddress.trim())) {
+      setError("メールアドレス形式ではありません");
+      isValid = false;
+      return;
+    }
+    if (JSON.parse(genre).length === 0) {
+      setError("ジャンルを選択してください");
+      isValid = false;
+      return;
+    }
+    if (!agree) {
+      setError("個人情報の取り扱いに同意する必要があります。");
+      return;
+    }
+    let result;
+    if (applyMode) {
+      result = await axios.post("api/influencer", body);
+      if (result.data.type === "success") {
+        router.replace("applyConfirm");
+      }
+    } else {
+      result = await axios.put("api/influencer", body);
+      if (result.data.type === "success") {
+        setError("");
+        setShowConfirm(true);
+      }
+    }
   };
   return (
     <div
@@ -123,6 +178,19 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           : "text-center bg-[white] px-[35px] sp:px-[12px] sp:text-small "
       }
     >
+      <div
+        className={
+          showConfirm
+            ? "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto duration-500"
+            : "bg-black bg-opacity-25 w-full h-full fixed left-0 overflow-auto opacity-0 pointer-events-none duration-500"
+        }
+      >
+        <Modal
+          body={confirmMsg}
+          onOk={() => setShowConfirm(false)}
+          onCancel={() => setShowConfirm(false)}
+        />
+      </div>
       {!applyMode && (
         <div className="flex items-center py-[20px]  w-[full] border-b-[1px] border-[#DDDDDD] mt-[70px] mb-[50px] sp:mt-[96px]">
           <span className="text-title sp:text-sptitle">
@@ -152,9 +220,24 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
       </div>
       <div className="flex items-center py-[15px] w-[40%] sp:w-full m-auto border-b-[1px] border-[#DDDDDD]   sp:px-[18px]">
         <span className="w-[35%] sp:w-[100px] flex justify-end sp:justify-start  mr-[67px]">
+          <span>性別</span>
+        </span>
+        <Select
+          handleChange={(val) => setData({ ...data, gender: val })}
+          value={data ? data.gender : "男性"}
+          selectClassName="w-[138px] border-[#D3D3D3]"
+        >
+          <option value={"男性"}>男性</option>
+          <option value={"女性"}>女性</option>
+          <option value={"その他"}>その他</option>
+        </Select>{" "}
+      </div>
+      <div className="flex items-center py-[15px] w-[40%] sp:w-full m-auto border-b-[1px] border-[#DDDDDD]   sp:px-[18px]">
+        <span className="w-[35%] sp:w-[100px] flex justify-end sp:justify-start  mr-[67px]">
           <span>ニックネーム</span>
         </span>
         <Input
+          requirMsg="ニックネームを入力してください"
           handleChange={(val) => setData({ ...data, nickName: val })}
           inputClassName="max-w-[250px] grow border-[#D3D3D3] w-[100%]"
           value={data ? data.nickName : ""}
@@ -165,6 +248,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <span>電話番号</span>
         </span>
         <Input
+          requirMsg="電話番号を入力してください"
+          formatMsg="電話番号形式ではありません"
+          format="^0\d{1,4}-\d{1,4}-\d{4}$"
           handleChange={(val) => setData({ ...data, phoneNumber: val })}
           inputClassName="max-w-[250px] grow border-[#D3D3D3] w-[100%]"
           value={data ? data.phoneNumber : ""}
@@ -175,6 +261,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <span>メールアドレス</span>
         </span>
         <Input
+          formatMsg="メールアドレス形式ではありません"
+          format="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+          requirMsg="メールアドレスを入力してください"
           handleChange={(val) => setData({ ...data, emailAddress: val })}
           inputClassName="max-w-[250px] grow border-[#D3D3D3] w-[100%]"
           value={data ? data.emailAddress : ""}
@@ -191,7 +280,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           handleChange={(val) => setData({ ...data, prefecture: val })}
           selectClassName="max-w-[250px] grow border-[#D3D3D3] w-[100%]"
         >
-          {prefectures.map((aPrefecture, key) => (
+          {prefectures?.map((aPrefecture, key) => (
             <option key={key} value={aPrefecture}>
               {aPrefecture}
             </option>
@@ -206,15 +295,17 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("美容・コスメ系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("美容・コスメ系")
+                  : false
               }
               title="美容・コスメ系"
               handleChange={(val) => handleGenreChange("美容・コスメ系")}
             />
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("アパレル・ファッション系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("アパレル・ファッション系")
                   : false
               }
               checkBoxClassName="ml-[25px]"
@@ -227,8 +318,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("スイーツ・グルメ系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("スイーツ・グルメ系")
                   : false
               }
               handleChange={(val) => handleGenreChange("スイーツ・グルメ系")}
@@ -236,8 +327,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             />
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("旅行・レジャー系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("旅行・レジャー系")
                   : false
               }
               handleChange={(val) => handleGenreChange("旅行・レジャー系")}
@@ -248,8 +339,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes(
+                data?.genre
+                  ? JSON.parse(data?.genre).includes(
                       "育児・ファミリー系（ママ、キッズ等）"
                     )
                   : false
@@ -260,7 +351,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
             />
             <Checkbox
-              value={data ? JSON.parse(data.genre).includes("教育系") : false}
+              value={
+                data?.genre ? JSON.parse(data?.genre).includes("教育系") : false
+              }
               checkBoxClassName="ml-[25px]"
               handleChange={(val) => handleGenreChange("教育系")}
               title="教育系"
@@ -269,8 +362,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes(
+                data?.genre
+                  ? JSON.parse(data?.genre).includes(
                       "スポーツ・フィットネス・ボディメイク系"
                     )
                   : false
@@ -284,14 +377,18 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("ダイエット系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("ダイエット系")
+                  : false
               }
               title="ダイエット系"
               handleChange={(val) => handleGenreChange("ダイエット系")}
             />
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("エンタメ系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("エンタメ系")
+                  : false
               }
               checkBoxClassName="ml-[25px]"
               title="エンタメ系"
@@ -299,7 +396,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             />
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("ビジネス系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("ビジネス系")
+                  : false
               }
               handleChange={(val) => handleGenreChange("ビジネス系")}
               checkBoxClassName="ml-[25px]"
@@ -309,8 +408,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("アパレル・ファッション系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("アパレル・ファッション系")
                   : false
               }
               handleChange={(val) =>
@@ -320,7 +419,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             />
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("お金・投資系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("お金・投資系")
+                  : false
               }
               checkBoxClassName="ml-[25px]"
               handleChange={(val) => handleGenreChange("お金・投資系")}
@@ -330,8 +431,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("漫画・イラスト系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("漫画・イラスト系")
                   : false
               }
               title="漫画・イラスト系"
@@ -340,12 +441,18 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             <Checkbox
               checkBoxClassName="ml-[25px]"
               title="アート系"
-              value={data ? JSON.parse(data.genre).includes("アート系") : false}
+              value={
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("アート系")
+                  : false
+              }
               handleChange={(val) => handleGenreChange("アート系")}
             />
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("ペット・動物系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("ペット・動物系")
+                  : false
               }
               handleChange={(val) => handleGenreChange("ペット・動物系")}
               checkBoxClassName="ml-[25px]"
@@ -355,8 +462,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("記事執筆・ライティング系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("記事執筆・ライティング系")
                   : false
               }
               title="記事執筆・ライティング系"
@@ -366,8 +473,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             />
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes("ライフスタイル系")
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("ライフスタイル系")
                   : false
               }
               handleChange={(val) => handleGenreChange("ライフスタイル系")}
@@ -378,8 +485,8 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes(
+                data?.genre
+                  ? JSON.parse(data?.genre).includes(
                       "花・フラワーアレンジメント系"
                     )
                   : false
@@ -391,7 +498,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
             />
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("医師・医療系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("医師・医療系")
+                  : false
               }
               handleChange={(val) => handleGenreChange("医師・医療系")}
               checkBoxClassName="ml-[25px]"
@@ -401,15 +510,17 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex py-[5px]">
             <Checkbox
               value={
-                data ? JSON.parse(data.genre).includes("バーチャル系") : false
+                data?.genre
+                  ? JSON.parse(data?.genre).includes("バーチャル系")
+                  : false
               }
               handleChange={(val) => handleGenreChange("バーチャル系")}
               title="バーチャル系"
             />
             <Checkbox
               value={
-                data
-                  ? JSON.parse(data.genre).includes(
+                data?.genre
+                  ? JSON.parse(data?.genre).includes(
                       "写真家・フォトグラファー系"
                     )
                   : false
@@ -423,7 +534,9 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           </div>
           <div className="flex py-[5px]">
             <Checkbox
-              value={data ? JSON.parse(data.genre).includes("その他") : false}
+              value={
+                data?.genre ? JSON.parse(data?.genre).includes("その他") : false
+              }
               handleChange={(val) => handleGenreChange("その他")}
               title="その他"
             />
@@ -441,10 +554,15 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               handleChange={(val) =>
                 setData({
                   ...data,
-                  instagram: JSON.stringify({
-                    ...JSON.parse(data?.instagram),
-                    account: val,
-                  }),
+                  instagram: data.instagram
+                    ? JSON.stringify({
+                        ...JSON.parse(data?.instagram),
+                        account: val,
+                      })
+                    : JSON.stringify({
+                        account: val,
+                        followers: "",
+                      }),
                 })
               }
               inputClassName="ml-[30px] sp:ml-[0px] grow max-w-[250px]"
@@ -454,6 +572,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex items-center grow py-[5px]">
             <span className="w-[100px] text-left sp:hidden">フォロワー数</span>
             <Select
+              disabled={!data?.instagram}
               value={
                 data?.instagram
                   ? JSON.parse(data.instagram).followers
@@ -470,7 +589,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
               selectClassName="ml-[30px] sp:ml-[0px] grow max-w-[150px]"
             >
-              {followersOptions.map((aOption, key) => (
+              {followersOptions?.map((aOption, key) => (
                 <option key={key} value={aOption}>
                   {aOption}
                 </option>
@@ -491,7 +610,15 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               handleChange={(val) =>
                 setData({
                   ...data,
-                  x: JSON.stringify({ ...JSON.parse(data?.x), account: val }),
+                  x: data.x
+                    ? JSON.stringify({
+                        ...JSON.parse(data?.x),
+                        account: val,
+                      })
+                    : JSON.stringify({
+                        account: val,
+                        followers: "",
+                      }),
                 })
               }
               inputClassName="ml-[30px] sp:ml-[0px] grow max-w-[250px]"
@@ -503,6 +630,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               value={
                 data?.x ? JSON.parse(data.x).followers : followersOptions[0]
               }
+              disabled={!data?.x}
               handleChange={(val) =>
                 setData({
                   ...data,
@@ -514,7 +642,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
               selectClassName="ml-[30px] sp:ml-[0px] grow max-w-[150px]"
             >
-              {followersOptions.map((aOption, key) => (
+              {followersOptions?.map((aOption, key) => (
                 <option key={key} value={aOption}>
                   {aOption}
                 </option>
@@ -534,10 +662,15 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               handleChange={(val) =>
                 setData({
                   ...data,
-                  facebook: JSON.stringify({
-                    ...JSON.parse(data?.facebook),
-                    account: val,
-                  }),
+                  facebook: data.facebook
+                    ? JSON.stringify({
+                        ...JSON.parse(data?.facebook),
+                        account: val,
+                      })
+                    : JSON.stringify({
+                        account: val,
+                        followers: "",
+                      }),
                 })
               }
               inputClassName="ml-[30px] sp:ml-[0px] grow max-w-[250px]"
@@ -547,6 +680,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex items-center  grow py-[5px]">
             <span className="w-[100px] text-left sp:hidden">フォロワー数</span>
             <Select
+              disabled={!data?.facebook}
               value={
                 data?.facebook
                   ? JSON.parse(data.facebook).followers
@@ -563,7 +697,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
               selectClassName="ml-[30px] sp:ml-[0px] grow max-w-[150px]"
             >
-              {followersOptions.map((aOption, key) => (
+              {followersOptions?.map((aOption, key) => (
                 <option key={key} value={aOption}>
                   {aOption}
                 </option>
@@ -583,10 +717,15 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               handleChange={(val) =>
                 setData({
                   ...data,
-                  tiktok: JSON.stringify({
-                    ...JSON.parse(data?.tiktok),
-                    account: val,
-                  }),
+                  tiktok: data.tiktok
+                    ? JSON.stringify({
+                        ...JSON.parse(data?.tiktok),
+                        account: val,
+                      })
+                    : JSON.stringify({
+                        account: val,
+                        followers: "",
+                      }),
                 })
               }
               inputClassName="ml-[30px] sp:ml-[0px] grow max-w-[250px]"
@@ -596,6 +735,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex items-center  grow py-[5px]">
             <span className="w-[100px] text-left sp:hidden">フォロワー数</span>
             <Select
+              disabled={!data?.tiktok}
               value={
                 data?.tiktok
                   ? JSON.parse(data.tiktok).followers
@@ -612,7 +752,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
               selectClassName="ml-[30px] sp:ml-[0px] grow max-w-[150px]"
             >
-              {followersOptions.map((aOption, key) => (
+              {followersOptions?.map((aOption, key) => (
                 <option key={key} value={aOption}>
                   {aOption}
                 </option>
@@ -632,10 +772,15 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               handleChange={(val) =>
                 setData({
                   ...data,
-                  youtube: JSON.stringify({
-                    ...JSON.parse(data?.youtube),
-                    account: val,
-                  }),
+                  youtube: data.youtube
+                    ? JSON.stringify({
+                        ...JSON.parse(data?.youtube),
+                        account: val,
+                      })
+                    : JSON.stringify({
+                        account: val,
+                        followers: "",
+                      }),
                 })
               }
               inputClassName="ml-[30px] sp:ml-[0px] grow max-w-[250px]"
@@ -645,6 +790,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           <div className="flex items-center  grow py-[5px]">
             <span className="w-[100px] text-left sp:hidden">フォロワー数</span>
             <Select
+              disabled={!data?.youtube}
               value={
                 data?.youtube
                   ? JSON.parse(data.youtube).followers
@@ -661,7 +807,7 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
               }
               selectClassName="ml-[30px] sp:ml-[0px] grow max-w-[150px]"
             >
-              {followersOptions.map((aOption, key) => (
+              {followersOptions?.map((aOption, key) => (
                 <option key={key} value={aOption}>
                   {aOption}
                 </option>
@@ -681,6 +827,27 @@ const InfluencerInfoPage: React.FC<InfluencerInfoProps> = ({
           textAreaClassName="max-w-[380px] grow"
         ></TextArea>
       </div>
+      <div className="flex justify-center">
+        <Checkbox
+          prefix={""}
+          value={agree}
+          checkBoxClassName="mt-[36px]"
+          title={
+            <span>
+              <span className="underline decoration-[#353A40] underline-offset-[5px]">
+                個人情報の取り扱い
+              </span>
+              に同意します
+            </span>
+          }
+          handleChange={(isChecked) => {
+            setAgree(isChecked);
+          }}
+        />
+      </div>
+      {error !== "" && (
+        <div className="text-center m-[10px] text-[#EE5736]">{error}</div>
+      )}
       <div className="flex justify-center mt-[36px] mb-[160px] sp:mb-[60px]">
         {!applyMode && (
           <Button

@@ -10,9 +10,7 @@ const CaseDetail: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       const result = await axios.get(`/api/case/aCase?id=${id}`);
-      console.log(result.data);
-
-      setData(result.data);
+      if (result.data) setData(result.data);
     };
     fetchData();
   }, []);
